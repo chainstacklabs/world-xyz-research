@@ -1,0 +1,12 @@
+[project]
+name = "solana-world-xyz"
+version = "0.1.0"
+description = "Independent reverse-engineering of the World (world.xyz) prediction market on Solana"
+requires-python = ">=3.11"
+dependencies = [
+    "solders>=0.21",
+    "base58>=2.1",
+]
+
+[tool.uv]
+package = false

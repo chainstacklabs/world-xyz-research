@@ -1,0 +1,63 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+[[package]]
+name = "base58"
+version = "2.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7f/45/8ae61209bb9015f516102fa559a2914178da1d5868428bd86a1b4421141d/base58-2.1.1.tar.gz", hash = "sha256:c5d0cb3f5b6e81e8e35da5754388ddcc6d0d14b6c6a132cb93d69ed580a7278c", size = 6528, upload-time = "2021-10-30T22:12:17.858Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4a/45/ec96b29162a402fc4c1c5512d114d7b3787b9d1c2ec241d9568b4816ee23/base58-2.1.1-py3-none-any.whl", hash = "sha256:11a36f4d3ce51dfc1043f3218591ac4eb1ceb172919cebe05b52a5bcc8d245c2", size = 5621, upload-time = "2021-10-30T22:12:16.658Z" },
+]
+
+[[package]]
+name = "jsonalias"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/45/ee7e17002cb7f3264f755ff6a1a72c55d1830e07808d643167d2a2277c4f/jsonalias-0.1.1.tar.gz", hash = "sha256:64f04d935397d579fc94509e1fcb6212f2d081235d9d6395bd10baedf760a769", size = 1095, upload-time = "2022-10-28T22:57:56.224Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/41/ed/05aebce69f78c104feff2ffcdd5a6f9d668a208aba3a8bf56e3750809fd8/jsonalias-0.1.1-py3-none-any.whl", hash = "sha256:a56d2888e6397812c606156504e861e8ec00e188005af149f003c787db3d3f18", size = 1312, upload-time = "2022-10-28T22:57:54.763Z" },
+]
+
+[[package]]
+name = "solana-world-xyz"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "base58" },
+    { name = "solders" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "base58", specifier = ">=2.1" },
+    { name = "solders", specifier = ">=0.21" },
+]
+
+[[package]]
+name = "solders"
+version = "0.28.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jsonalias" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/43/b5/739f342aecacedf2a55e7baaff10714f1d70b4a4ccf2df4155fbe85a5a38/solders-0.28.0.tar.gz", hash = "sha256:c910d4fcc97bb00ec0146425b73a74e51241865de743be215b6c2fb664040013", size = 174557, upload-time = "2026-07-01T17:29:31.678Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a3/35/2ea73d0f6b7701a6747991842f76addb506dcc1cdcd1c310a6543e214d68/solders-0.28.0-cp310-abi3-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:07844e22f7a7b8fd698a46f2a09d355d35d9898a1bd86017ba6cb519eb11e4c1", size = 23084694, upload-time = "2026-07-01T17:29:14.522Z" },
+    { url = "https://files.pythonhosted.org/packages/57/9e/cfdd9eea38d221fc72844b030ac3bb3e5dc60758aaf023dc77482e76019e/solders-0.28.0-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:015ae6841cea52539521bb76c121df5742a476d1ae3718f1ddcd0d00f015fa59", size = 12056383, upload-time = "2026-07-01T17:29:18.016Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/cb/565ac41638d925516cf8898f5fb574f2f9c4110159af5e2da7d4cb163dbd/solders-0.28.0-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:dad8c3f4516cb2c0214763766b10c065b64cdda1efed9440319aceac3cdc2615", size = 12513925, upload-time = "2026-07-01T17:29:20.594Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/96/b8a74e55a0c978c776a30decc64266d56525eca89d5460c4965bf1c05735/solders-0.28.0-cp310-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:cd3635e478765c279788b5a0875c0be19e72ec5ac37f36659479d02f47287594", size = 12629581, upload-time = "2026-07-01T17:29:23.654Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/a7/5a6385537c6ae1071583b3538f1c40a8377d0b814d21505d5ccd535383cb/solders-0.28.0-cp310-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:e21fd158660865f46dd93f0986f0606973f91833c723dc6f42c90e76aeaacf4d", size = 12663803, upload-time = "2026-07-01T17:29:26.594Z" },
+    { url = "https://files.pythonhosted.org/packages/19/22/6a6eb6e944c00579555de72a81bfb8191299e05aa2f1fbd28837179e6110/solders-0.28.0-cp310-abi3-win_amd64.whl", hash = "sha256:38eceb69ecb514cb8b5ee9a7a80434f147ab0655094ab2bfc685b31a115acdc4", size = 11152191, upload-time = "2026-07-01T17:29:29.269Z" },
+]
+
+[[package]]
+name = "typing-extensions"
+version = "4.16.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz", hash = "sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5", size = 113555, upload-time = "2026-07-02T08:40:05.92Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl", hash = "sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8", size = 45571, upload-time = "2026-07-02T08:40:04.659Z" },
+]

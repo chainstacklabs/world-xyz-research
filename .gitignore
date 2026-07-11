@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+data/
+*.local.*
+_tools/
+sources/
+
+# live test wallet keyfiles — never commit a secret
+selfserve/*.json
+*keypair*.json
+world-test*.json
