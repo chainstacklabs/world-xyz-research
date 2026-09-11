@@ -14,3 +14,5 @@ sources/
 selfserve/*.json
 *keypair*.json
 world-test*.json
+_mm/
+.surfpool/

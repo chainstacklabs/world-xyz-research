@@ -35,7 +35,9 @@ Prices come from the market makers. When you buy, your CASH goes through DFlow t
 maker, which mints a complete set, hands you the side you bet on, and keeps the other.
 The price you pay is the market's probability for your outcome — 0.25 CASH per YES token
 means the market says 25%. The maker prices the two sides to sum slightly above $1; that
-gap (2–3%) is its fee, baked into the quote rather than charged separately.
+gap is its fee. **The size of that take is not fixed** — it is a per-fill parameter set
+by whoever builds the transaction, and has been observed from ~0% up to ~8% of the stake;
+see [the fee note](docs/reference.md#worked-trade-decode-price-and-fee).
 
 You are not locked in until resolution — outcome tokens are ordinary tokens with a
 continuous maker on the other side, so you can sell back to CASH anytime. The wallet's
@@ -51,7 +53,7 @@ liquidity and resolution choices:
 | Outcome tokens | Solana Token-2022 YES/NO pairs | Ethereum ERC-1155 YES/NO (Gnosis CTF) |
 | Collateral | CASH (Bridge/Stripe stablecoin) | USDC |
 | Price formation | market maker quotes, mints sets on demand | order book (off-chain book, on-chain settle) |
-| Trading fee | 2–3% embedded maker spread | 0% trading fee (historically) |
+| Trading fee | variable, integrator-set; ~0–8% of stake observed | 0% trading fee (historically) |
 | Sell / early exit | yes — swap back to CASH anytime | yes — sell on the book anytime |
 | Payout | operator pushes CASH to winners | claim/redeem yourself |
 | Resolution | single operator key, no on-chain oracle | UMA optimistic oracle with dispute window |
@@ -101,17 +103,18 @@ what a trade is worth, and when to resolve, then hand the user a transaction to 
 **Buying is the clearest case.** It is not a single permissionless contract call — it is
 two steps:
 
-1. **Off-chain (gated).** Phantom asks DFlow's order server (`GET /order` on
-   `quote-api.dflow.net`) for a quote. DFlow picks a market maker (JanusFI or BisonFI),
-   which sets the price and the 2–3% spread and returns a *fully built transaction*. This
-   step needs DFlow production API access — the keyless endpoint returns no route
-   for World outcome mints, so only authorized integrators (Phantom) get a fillable quote.
+1. **Off-chain.** The app asks an order server for a quote. DFlow picks a market maker, which sets the price and the fee and returns a *fully built
+   transaction*. Since the web app shipped, this is **open**: World's own
+   `aggregator-api-proxy.world-xyz.workers.dev/order` serves fillable outcome-token quotes
+   with no API key. (The original survey found this gated; that applied to
+   `quote-api.dflow.net` / `dev-quote-api.dflow.net`, which are still key-bound.)
 2. **On-chain (permissionless).** The user signs and submits that transaction. It routes
    through the maker into `prediCt.split`, mints a complete set, and hands over one leg.
    *Anyone* can submit this half — the program enforces no maker allowlist.
 
-So "permissionless" is true of the on-chain half only. The price, the spread, and the
-market catalog all live in gated backends. The exception: you can skip the off-chain
+So "permissionless" is true of the on-chain half only — the price and the market catalog
+are still decided off-chain, even though they are now readable by anyone. The exception:
+you can skip the off-chain
 surface entirely and call `prediCt.split` yourself — verified permissionless on mainnet,
 at a true 1.0 basis, no maker and no API key ([`selfserve/`](selfserve/)).
 
@@ -133,16 +136,17 @@ Who calls each instruction on mainnet. Details in [`docs/reference.md`](docs/ref
 
 ### Off-chain — the backends
 
-What runs off-chain, and what's reachable. World's own API is gated; the
-per-trade quote runs on DFlow's gated production API. Endpoint detail and reproduce steps
-in [`docs/reference.md`](docs/reference.md#off-chain-surfaces).
+What runs off-chain, and what's reachable. Endpoint detail and reproduce steps
+in [`docs/reference.md`](docs/reference.md#off-chain-surfaces). Verified 2026-09-11.
 
 | Surface | Host | Role | Access |
 |---|---|---|---|
-| World frontend | `world.xyz` | Thin holding-page SPA — the real trading UI ships inside **Phantom** | open (but nearly empty) |
-| World backend | `api.world.xyz` | World's own API — the market catalog Phantom displays | **gated** (Cloudflare 403) |
+| World frontend | `world.xyz` | Full React SPA | open |
+| Market catalog | `markets-api-proxy.world-xyz.workers.dev/api/v1/markets` | 4,000 markets with live bid/ask, volume, open interest, rules, and the on-chain `marketLedger`/`yesMint`/`noMint` | **open, no key** |
+| Trade quotes & tx build | `aggregator-api-proxy.world-xyz.workers.dev/order` | Maker RFQ quote + constructed swap tx; carries the platform fee | **open, no key** |
+| World backend | `api.world.xyz` | Not the path the web app uses | **gated** (Cloudflare 403) |
 | Outcome-token metadata | `m.world.xyz/<mint>` | Per-market name/symbol JSON | open per mint (404s once a market closes) |
-| Trade quotes & tx build | `quote-api.dflow.net` `GET /order` | Maker RFQ quote + constructed swap tx (the 2–3% spread lives here) | **gated** (`x-api-key`, approval) |
+| Trade quotes (DFlow direct) | `quote-api.dflow.net` `GET /order` | Same surface, DFlow-hosted | **gated** (`x-api-key`, approval) |
 | Resolution data | Chainlink Data Streams + CRE | Prices / match outcomes feeding the operator key | off-chain pipeline |
 
 ## What's in this repo

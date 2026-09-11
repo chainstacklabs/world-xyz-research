@@ -1,7 +1,8 @@
 # Addresses
 
 Every on-chain address the research relies on, with its role and how it was verified.
-Mainnet-beta. Verified 2026-07-10. Reproduce with the tools in [`tools/`](tools/); the
+Mainnet-beta. Addresses verified 2026-07-10; program state re-checked 2026-09-11.
+Reproduce with the tools in [`tools/`](tools/); the
 narrative for each lives in [`docs/reference.md`](docs/reference.md) and
 [`docs/trust-model.md`](docs/trust-model.md).
 
@@ -17,6 +18,20 @@ narrative for each lives in [`docs/reference.md`](docs/reference.md) and
 
 All four are upgradeable (BPFLoaderUpgradeable) — none immutable. prediCt was deployed
 first; all loaders/slots via `getAccountInfo` → ProgramData.
+
+> **Re-checked 2026-09-11 — two programs have been upgraded since this table was written.**
+> The slot column is the *last ProgramData write*, not the original deployment, so it moves
+> on every upgrade:
+>
+> | Program | slot above | slot on 2026-09-11 |
+> |---|---|---|
+> | prediCt | 429,950,041 | **436,239,452** |
+> | DFlow orchestrator | 431,673,740 | **445,366,103** |
+>
+> Upgrade authorities are unchanged. The prediCt upgrade is where two instructions absent
+> from the original survey came from — see
+> [the instruction set](docs/reference.md#predict-instruction-set). Anything in this repo
+> describing prediCt's behaviour should be read against the version it was surveyed on.
 
 ## $CASH — collateral (Bridge-issued stablecoin, not a World asset)
 
@@ -35,6 +50,7 @@ first; all loaders/slots via `getAccountInfo` → ProgramData.
 | Account | Address / pattern | Notes |
 |---|---|---|
 | Operator key | `DDucv2DeUsTsg1rfAcWAnUSUVpqfdHEzxX66ARB2JYVg` | Automated bot — creates, resolves, pays, closes every market (6,000+ sigs/min). Not a PDA; the sole resolution signer. |
+| User settings PDA | one per trader, 113 B, disc `93e578389e564dd1` | Owner wallet at offset 8. **29,674** existed on 2026-09-11 — a chain-derived floor on wallets that have ever traded World. |
 | Event authority | `3szuQmavzLtzPitk9LbuUtcRd6W3299f7zNGNKD5vK82` | prediCt `__event_authority` (Anchor event-CPI) |
 | Per-market authority | Market PDA (per market) | One PDA per market = mint + permanent-delegate + close + metadata-update authority for that market's YES/NO mints. Seed derivation computed in-program → not recovered. |
 | Outcome mints | YES/NO Token-2022 pair per market, 6 decimals | Name/symbol in tokenMetadata ext; uri `m.world.xyz/<mint>` (404s once closed). Example: `4mQhMnqNYWwY3XLFcFFVtuCCzRtSwbw5THLGvkLZmAA8` = "ARG vs EGY: ARG wins (YES)". Closed on settlement. |

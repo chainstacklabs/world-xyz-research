@@ -8,7 +8,7 @@ That is the difference from [`../tools/`](../tools/), which is read-only RPC rep
 
 `split` and `merge` on `prediCt` are **permissionless**. Any wallet can mint a complete
 set (`split`: N CASH → N YES + N NO) and redeem it (`merge`: N YES + N NO → N CASH)
-directly, with **no market maker and no ~2% spread** — the maker only appears because
+directly, with **no market maker and no spread or platform fee** — the maker only appears because
 Phantom's frontend routes through one, not because the program requires it.
 
 The program enforces only that the caller signs and owns the CASH source account. Nothing

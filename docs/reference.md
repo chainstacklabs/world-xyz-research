@@ -70,10 +70,15 @@ Streams verifier: 0 edges anywhere. Reproduce: `uv run python tools/map_relation
 
 ## prediCt instruction set
 
-Twelve instructions, all matching `sha256("global:<snake_name>")[:8]` — an Anchor program
+Fourteen instructions, all matching `sha256("global:<snake_name>")[:8]` — an Anchor program
 with a withheld IDL. `split`/`merge`/`*_user_settings` appear as inner instructions;
 `initialize_market`/`determine_outcome`/`close_market`/`update_metadata` as top-level.
 Reproduce: `uv run tools/map_predict.py 60`.
+
+> **Verified 2026-09-11.** The last two were recovered from a live trade whose logs name
+> them (`CreateUserSettingsIdempotent`, `UpdateUserSettingsV2`); both discriminators match
+> `sha256("global:<name>")[:8]`. prediCt has been **upgraded** since the original survey
+> (ProgramData slot 429,950,041 → 436,239,452), which is where they came from.
 
 | Instruction | Anchor discriminator | Accts | Role |
 |---|---|---|---|
@@ -89,6 +94,8 @@ Reproduce: `uv run tools/map_predict.py 60`.
 | `create_user_settings` | `aad9c4bd2a7fe4c9` | 4 | Per-user settings PDA |
 | `update_user_settings` | `3a2689e8ec5dafea` | 3 | " |
 | `close_user_settings` | `1188a5b29e74ad65` | 3 | " |
+| `create_user_settings_idempotent` | `8e643ffecb324361` | 4 | Idempotent variant; top-level in current trades |
+| `update_user_settings_v2` | `1ccbdc6777985d72` | 2 | V2 variant; 34-byte payload (2 flag bytes + 32-byte blob) |
 
 The program uses the Anchor event-CPI pattern — the `__event_authority` PDA
 `3szuQmavzLtzPitk9LbuUtcRd6W3299f7zNGNKD5vK82`
@@ -123,7 +130,7 @@ at resolution:  winning token → 1 CASH,  losing token → 0
 Every operation conserves value 1:1 — the vault always holds exactly one CASH per
 outstanding complete set, and at settlement winners drain their share while losers burn to
 nothing, netting the vault to zero with no protocol-level fee or leakage. The program
-contains no pricing math at all; all price formation and the ~2% spread happen off-chain
+contains no pricing math at all; all price formation and the fee happen off-chain
 in the market maker's quote (see [Worked trade decode](#worked-trade-decode-price-and-fee)).
 
 ## Market lifecycle
@@ -239,9 +246,40 @@ signed by the operator key and parse the data per the format above.
 | YES / NO outcome mints (Token-2022) | Token-2022 | market | confirmed; authority = per-market PDA |
 | per-market authority | — (PDA) | market | is the Market PDA itself (mint+delegate+close+metadata auth) |
 | CASH vault (ATA) | market PDA | market | confirmed via split/merge rosters |
-| JanusFI/BisonFI pool state (~400 B) | maker program | market | owner confirmed; **layout open** |
+| JanusFI pool state (**451 B**) | JanusFI | market | 1,897 accounts, 4 distinct magics; layout open |
+| BisonFI pool state (**2048 B**) | BisonFI | market | magic `PREDMKT\0`; market pubkey @48; partially decoded below |
 | user settings PDA | prediCt | user | exists (create/update/close ix); **seed + fields open** |
 | event authority PDA `3szuQma…` | — | global | confirmed = `__event_authority` |
+
+## Maker pool state (BisonFI, partial)
+
+Verified 2026-09-11. 1,559 accounts of **2048 B** owned by BisonFI, magic
+`505245444d4b5400` = `PREDMKT\0` (not an Anchor discriminator). One per market, unique
+market pubkey at offset 48. **They outlive the market**: 884 of the 1,559 point at markets
+`close_market` has already destroyed, so settled-market state stays readable from current
+state with no archive node.
+
+| Offset | Field | Confidence |
+|---|---|---|
+| 48 / 80 / 112 | market, YES mint, NO mint | verified |
+| 144 / 176 / 208 | pool's YES, NO, CASH token accounts | verified |
+| **248 / 256** | maker **YES / NO inventory** | verified — exact match to those token accounts across markets |
+| 264 / 296 | slot numbers | verified |
+| 240 | monotonically rising counter; Δ240/Δ248 ≈ a CASH-per-token price over an interval | `UNVERIFIED:` consistent with a cumulative CASH counter, not cross-checked against a decoded fill |
+
+The maker's on-chain writes are a **static 327-byte ladder blob** (byte-identical across
+consecutive updates) and a 65-byte heartbeat whose only varying fields are a clock and the
+current slot. **No live quote is posted on-chain** — consistent with
+[open question 3](#open-questions): RFQ quoting stays off-chain.
+
+JanusFI is a different layout: 1,897 accounts of **451 B** across four distinct magics;
+offset 48 is not a market pubkey. Not mapped.
+
+## User settings PDA
+
+Verified 2026-09-11. **29,674** accounts of **113 B** owned by prediCt, all sharing
+discriminator `93e578389e564dd1`, with the **owner wallet at offset 8**. One per trader, so
+the count is a chain-derived floor on wallets that have ever traded World. Reproduce: `getProgramAccounts` on prediCt, group by `space`.
 
 ## Outcome tokens
 
@@ -273,7 +311,7 @@ The mints and vault passed must be the target market's own, and the market must 
 (resolved markets are `close_market`'d, so their mints/vault no longer exist).
 
 **Consequence.** A user can mint a complete set (`split`) and redeem it (`merge`) directly,
-at a true 1.0 basis, bypassing the 2–3% spread baked into the maker's quote. Confirmed end
+at a true 1.0 basis, bypassing whatever spread and fee the maker's quote carries. Confirmed end
 to end on mainnet: 1 CASH splits into 1 YES + 1 NO and the pair merges back to exactly
 1 CASH, value-conserving to the raw unit. Reproduce with the wallet-signing scripts
 in [`../selfserve/`](../selfserve/) (`split.py` / `merge.py`).
@@ -300,9 +338,19 @@ side, by selling straight from inventory with no `split` at all. A real buy deco
   equals the fees collected (0.306570 / 14.218261 = 2.16%). Prices summing above 1 is the
   maker's margin — it mints a $1 set and sells the two legs for ~$1.02.
 
-The spread runs 2–3% and splits across three receivers, the second always receiving
-exactly one tenth of the first. It is not a separate line item — it is baked into the
-quote (why YES+NO > 1).
+The spread in *this* trade runs 2.16% across three receivers, the second always receiving
+exactly one tenth of the first.
+
+> **Correction, verified 2026-09-11.** This is not a fixed protocol fee, and the 2–3%
+> figure does not generalise. The take is a **per-fill parameter**: DFlow's
+> `fill_order` instruction carries `platform_fee_ubps: u32` (see the published IDL in
+> [`../world_idls/dflow.json`](../world_idls/dflow.json)), set by whoever builds the
+> transaction, not enforced by `prediCt`. Observed since: a trade whose complete set
+> priced to **exactly 1.0000** with fees charged separately at **10.87%** of the buyer's
+> CASH input; and quotes from the open order endpoint following
+> `feeBps ≈ 800 × (1 − price)` — ~7.9% on a long shot, ~0.03% on a near-certainty
+> (n=37 legs, max residual 0.9 bps). The fee appears only when the order is built for an
+> attributed `userPublicKey`. Treat any single fee number here as path-specific.
 
 Reproduce: `getTransaction` on any DFlow buy → sum `preTokenBalances`/`postTokenBalances`
 deltas by owner+mint.
@@ -349,21 +397,52 @@ infrastructure, not World-controlled (distinct upgrade authority — see
 ## Off-chain surfaces
 
 A World trade spans two surfaces: the on-chain programs above, and off-chain backends that
-hold the market catalog, quote prices, and drive resolution. The backends are gated, so
-their existence is verifiable but their contents mostly are not.
+hold the market catalog, quote prices, and drive resolution.
+
+> **Superseded 2026-09-11.** The original survey concluded the backends were gated. That is
+> no longer true. Since the web app shipped, world.xyz talks to **open Cloudflare Worker
+> proxies** that need no API key — the full market catalog and *fillable* outcome-token
+> quotes are both public. The `api.world.xyz` / `quote-api.dflow.net` findings below still
+> hold for those hosts; they are simply no longer the only way in.
 
 ### World's own surfaces
 
-- **`world.xyz`** is a thin single-page app — one Vite bundle, no API references in it. The
-  real trading UI ships inside **Phantom**, not here. Reproduce:
-  `curl -s https://world.xyz/ | wc -c` (≈915 B) and grep the one referenced
-  `/assets/index-*.js` for hosts (only `w3.org` / `react.dev` appear).
+- **`world.xyz`** is now a full React SPA (~2.9 KB shell, Vite/rolldown), no longer the
+  holding page of the original survey. It lazy-loads `/assets/api-*.js` and
+  `/assets/price-*.js` chunks; grep those — not the entry bundle — for backend hosts.
+- **Open proxies (no API key).** The app's backends, recovered from those chunks:
+
+  | Host | Role | Access |
+  |---|---|---|
+  | `markets-api-proxy.world-xyz.workers.dev/api/v1/markets` | full market catalog | **open** |
+  | `aggregator-api-proxy.world-xyz.workers.dev/order` | fillable outcome-token quotes + built tx | **open** |
+  | `users-api.world.xyz/api/v1` | per-user data | not probed |
+  | `orb.helius.dev` | the app's RPC | third-party |
+
+  The catalog paginates by `cursor` (**4,000 markets** at time of writing) and carries, per
+  market: `yesBid`/`yesAsk`/`noBid`/`noAsk`, `volume`, `volume24hFp`, `openInterestFp`,
+  `tradesTotal`, `trades24h`, `uniqueTraders`, resolution `rules`, a
+  `metadata.chainlink_market_id`, a `disputeWindowSeconds`, and an `accounts` map giving
+  **`marketLedger`, `yesMint`, `noMint`, `isInitialized`** per collateral mint. That map
+  makes market discovery trivial and sidesteps the unsolved PDA-seed derivation
+  ([open question 1](#open-questions)) — the addresses are published. **3,160 of the 4,000
+  are initialized on-chain.** Reproduce:
+  `curl -s -H 'origin: https://world.xyz' 'https://markets-api-proxy.world-xyz.workers.dev/api/v1/markets'`
+- **`aggregator-api-proxy…/quote`** refuses outcome tokens with
+  `use_order_endpoint_for_prediction_markets`; `/order` serves them, keyless, returning a
+  `routePlan` whose sole venue is `DFlow Prediction Market Router`.
+- **`api.world.xyz`** still returns `403` with an empty body on every path and method —
+  but it is not the path the web app uses. Reproduce:
+  `curl -s -o /dev/null -w '%{http_code}' https://api.world.xyz/markets` → `403`.
 - **`api.world.xyz`** is World's own backend — the market catalog Phantom renders. It sits
   behind Cloudflare and returns `403` with an empty body on every path and method, so its
   contents are gated. Reproduce:
   `curl -s -o /dev/null -w '%{http_code}' https://api.world.xyz/markets` → `403`.
 - **`m.world.xyz/<mint>`** serves each outcome mint's metadata JSON (name/symbol/uri), the
   same uri embedded in the Token-2022 metadata extension. It 404s once a market is closed.
+- **Market scope has widened.** The catalog is no longer BTC and football: it carries
+  long-dated political (US presidential 2029), macro, index and commodity series. The
+  longest-dated market initialized on-chain closes **2029-01-20**.
 
 A real Phantom World buy resolves to World's `prediCt…` program: it routes
 DFlow → JanusFI → `prediCt.split` (see
@@ -388,9 +467,15 @@ World's outcome tokens are Token-2022, and DFlow's own docs state Token-2022 min
 transaction will initialize the prediction market"). So the order server, not the user,
 picks the maker, sets slippage, and decides whether the tx also initializes the market.
 
-The keyless dev endpoint returns `{"code":"route_not_found"}` for a live World outcome
-mint (both buy and sell directions), so World's makers (JanusFI/BisonFI) quote only on the
-gated production endpoint that authorized integrators use. Reproduce (with a live YES mint
+The keyless *dev* endpoint returns `{"code":"route_not_found"}` for a live World outcome
+mint (both buy and sell directions).
+
+> **Superseded 2026-09-11.** The conclusion drawn from this — that only authorized
+> integrators can obtain a fillable quote — no longer holds. World's own
+> `aggregator-api-proxy.world-xyz.workers.dev/order` returns a complete, fillable quote for
+> outcome mints with **no API key**, including `outAmount`, `priceImpactPct`, a `routePlan`
+> and, when `userPublicKey` is supplied, a `platformFee`. The gating described here applies
+> to `dev-quote-api.dflow.net` only. Reproduce (with a live YES mint
 from `tools/decode_market.py`):
 
 ```bash
@@ -402,13 +487,17 @@ curl -s 'https://dev-quote-api.dflow.net/order?inputMint=CASHx9KJUStyftLFWGvEVf5
 
 Bytecode-level items, out of the current read-only scope:
 
-1. **PDA seed derivations** — Market/YES/NO/vault are confirmed off-curve PDAs, but the
+1. **PDA seed derivations** — still unsolved, but no longer blocking: World's open catalog
+   publishes `marketLedger`/`yesMint`/`noMint` per market, so discovery does not require
+   deriving them. Market/YES/NO/vault are confirmed off-curve PDAs, but the
    seed scheme did not match any content-based pattern tried (labels ×
    nonce/mint/counter/timestamp, ATA, counter brute 0–300k). Computed in-program → needs
    disassembly. State is *readable*; address *derivation* is not yet reproducible.
    (Per-market authority solved: it is the Market PDA.)
-2. **Maker internals** — how JanusFI/BisonFI price and manage inventory (RFQ quoting is
-   off-chain; on-chain only the fill is visible), and the ~400-byte pool state layout.
+2. **Maker internals** — how JanusFI/BisonFI price and manage inventory. *Partially
+   answered 2026-09-11*: the BisonFI pool (2048 B) is half-decoded and its on-chain writes
+   carry no live quote (see [Maker pool state](#maker-pool-state-bisonfi-partial)); JanusFI's
+   451-byte layout is still unmapped.
 3. **DFlow RFQ order lifecycle** — the `open_order`/`fill_order`/`close_order` handshake
    (only the fill lands on-chain; the quote round-trip stays off-chain).
 4. **Event payloads** — decode prediCt's Anchor event-CPI data for exact per-trade records.
