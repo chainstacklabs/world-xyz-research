@@ -1,4 +1,4 @@
-# world-xyz-research
+# How World works
 
 Independent technical research on **World** (world.xyz) — the Solana prediction market —
 reversed from the deployed programs, on-chain state, and DFlow routing.
@@ -8,6 +8,8 @@ reversed from the deployed programs, on-chain state, and DFlow routing.
 > Bridge. Every claim here is reproducible from RPC and cryptographically-verified
 > Anchor discriminators; World's / Phantom's own messaging is treated as a claim to verify,
 > not ground truth. No warranty.
+
+**Also by Chainstack** — [how to place limit orders on World prediction markets](https://github.com/chainstacklabs/world-xyz-limit-orders).
 
 ## What World is
 
