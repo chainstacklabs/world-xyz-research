@@ -168,6 +168,8 @@ in [`docs/reference.md`](docs/reference.md#off-chain-surfaces). Verified 2026-09
 
 ## Reproduce
 
+`SOL_RPC` needs a Solana mainnet archive endpoint, such as a Solana node from your [Chainstack account](https://console.chainstack.com/sign-up?utm_source=github&utm_medium=referral&utm_campaign=world-xyz-research).
+
 ```bash
 cp .env.example .env        # set SOL_RPC (Solana mainnet archive)
 uv sync
